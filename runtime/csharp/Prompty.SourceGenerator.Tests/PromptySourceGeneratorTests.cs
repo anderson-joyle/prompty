@@ -73,7 +73,9 @@ public class PromptySourceGeneratorTests
     {
         var result = RunGenerator("/project/chat.prompty", Fixtures.Chat);
         Assert.Single(result.GeneratedSources);
+        // hint name is namespace_ClassName.g.cs to prevent collisions across directories
         Assert.EndsWith("ChatPrompty.g.cs", result.GeneratedSources[0].HintName, StringComparison.Ordinal);
+        Assert.Contains("_", result.GeneratedSources[0].HintName, StringComparison.Ordinal);
     }
 
     // -----------------------------------------------------------------------
@@ -285,6 +287,55 @@ public class PromptySourceGeneratorTests
     }
 
     // -----------------------------------------------------------------------
+    // BUG-1 regression: hint-name collision for same-stem files in different dirs
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void BugFix1_SameStemDifferentDirs_ProduceTwoDistinctHintNames()
+    {
+        var compilation = CreateBaseCompilation();
+        var file1 = new InMemoryAdditionalText("/project/Prompts/chat.prompty", Fixtures.Chat);
+        var file2 = new InMemoryAdditionalText("/project/Greetings/chat.prompty", Fixtures.Chat);
+        var options = new TestAnalyzerConfigOptionsProvider("MyApp", new Dictionary<string, string>
+        {
+            ["/project/Prompts/chat.prompty"] = "Prompts/",
+            ["/project/Greetings/chat.prompty"] = "Greetings/"
+        });
+
+        var driver = CSharpGeneratorDriver
+            .Create(new PromptySourceGenerator())
+            .AddAdditionalTexts(System.Collections.Immutable.ImmutableArray.Create<AdditionalText>(file1, file2))
+            .WithUpdatedAnalyzerConfigOptions(options);
+
+        driver = (CSharpGeneratorDriver)driver.RunGenerators(compilation);
+        var result = driver.GetRunResult().Results[0];
+
+        Assert.Equal(2, result.GeneratedSources.Length);
+        var hints = result.GeneratedSources.Select(s => s.HintName).ToList();
+        Assert.Equal(2, hints.Distinct().Count()); // both hint names must be unique
+        Assert.All(hints, h => Assert.EndsWith("ChatPrompty.g.cs", h, StringComparison.Ordinal));
+    }
+
+    // -----------------------------------------------------------------------
+    // BUG-2 regression: optional params must follow required params
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void BugFix2_DefaultedParamBeforeRequired_GeneratesValidParameterOrder()
+    {
+        // YAML declares age (with default) before name (no default)
+        const string invertedOrder =
+            "---\ndescription: ordering test\ninputs:\n  age:\n    kind: integer\n    default: 30\n  name:\n    kind: string\n---\nbody";
+        var src = GetGeneratedSource(RunGenerator("/p/order.prompty", invertedOrder));
+        // Required param (name) must come before optional param (age) in generated signature
+        var namePos = src.IndexOf("string name", StringComparison.Ordinal);
+        var agePos = src.IndexOf("long age = 30L", StringComparison.Ordinal);
+        Assert.True(namePos >= 0, "string name parameter not found");
+        Assert.True(agePos >= 0, "long age = 30L parameter not found");
+        Assert.True(namePos < agePos, "required param 'name' must appear before optional param 'age'");
+    }
+
+    // -----------------------------------------------------------------------
     // Fixture strings
     // -----------------------------------------------------------------------
 
@@ -317,14 +368,21 @@ public class PromptySourceGeneratorTests
 internal sealed class TestAnalyzerConfigOptionsProvider : AnalyzerConfigOptionsProvider
 {
     private readonly string? _rootNamespace;
-    private readonly string _relativeDir;
-    private readonly string _filePath;
+    private readonly Dictionary<string, string> _relativeDirByPath;
 
     public TestAnalyzerConfigOptionsProvider(string? rootNamespace, string relativeDir, string filePath)
     {
         _rootNamespace = rootNamespace;
-        _relativeDir = relativeDir;
-        _filePath = filePath;
+        _relativeDirByPath = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [filePath] = relativeDir
+        };
+    }
+
+    public TestAnalyzerConfigOptionsProvider(string? rootNamespace, Dictionary<string, string> relativeDirByPath)
+    {
+        _rootNamespace = rootNamespace;
+        _relativeDirByPath = relativeDirByPath;
     }
 
     public override AnalyzerConfigOptions GlobalOptions => new TestAnalyzerConfigOptions(_rootNamespace, null);
@@ -333,9 +391,8 @@ internal sealed class TestAnalyzerConfigOptionsProvider : AnalyzerConfigOptionsP
 
     public override AnalyzerConfigOptions GetOptions(AdditionalText textFile)
     {
-        if (textFile.Path == _filePath)
-            return new TestAnalyzerConfigOptions(_rootNamespace, _relativeDir);
-        return new TestAnalyzerConfigOptions(_rootNamespace, null);
+        _relativeDirByPath.TryGetValue(textFile.Path, out var dir);
+        return new TestAnalyzerConfigOptions(_rootNamespace, dir);
     }
 }
 

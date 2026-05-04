@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -67,7 +68,9 @@ internal static class PromptyCodeEmitter
     {
         if (inputs == null || inputs.Count == 0) return string.Empty;
         var parts = new List<string>();
-        foreach (var prop in inputs)
+        // C# requires optional parameters (with defaults) to follow required ones
+        var ordered = inputs.OrderBy(p => p.Default != null ? 1 : 0);
+        foreach (var prop in ordered)
         {
             var paramName = PromptyNamingHelper.ToParameterName(prop.Name ?? "param");
             var typeName = KindToCSharpType(prop.Kind);

@@ -57,6 +57,7 @@ public sealed class PromptySourceGenerator : IIncrementalGenerator
 
         var source = PromptyCodeEmitter.Emit(namespaceName, className, content!, frontmatter.Inputs, frontmatter.Outputs);
 
-        spc.AddSource($"{className}.g.cs", SourceText.From(source, Encoding.UTF8));
+        var hintName = $"{namespaceName.Replace('.', '_')}_{className}.g.cs";
+        spc.AddSource(hintName, SourceText.From(source, Encoding.UTF8));
     }
 }
