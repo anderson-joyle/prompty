@@ -1,0 +1,12 @@
+---
+description: Multiple outputs fixture
+inputs:
+  query:
+    kind: string
+outputs:
+  answer:
+    kind: string
+  confidence:
+    kind: float
+---
+Multi-output prompt: {{query}}

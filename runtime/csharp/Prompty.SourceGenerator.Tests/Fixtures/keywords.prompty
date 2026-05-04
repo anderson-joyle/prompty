@@ -1,0 +1,9 @@
+---
+description: Reserved keyword parameter names
+inputs:
+  class:
+    kind: string
+  event:
+    kind: string
+---
+Handle {{class}} and {{event}}.

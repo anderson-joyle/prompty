@@ -1,0 +1,7 @@
+---
+description: Hyphenated filename fixture
+inputs:
+  query:
+    kind: string
+---
+Answer: {{query}}

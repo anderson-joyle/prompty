@@ -1,0 +1,18 @@
+---
+description: Type mapping fixture
+inputs:
+  flag:
+    kind: boolean
+  score:
+    kind: float
+  tags:
+    kind: array
+  meta:
+    kind: object
+  unknown_field:
+    kind: unknown
+outputs:
+  decision:
+    kind: boolean
+---
+Check types.

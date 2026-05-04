@@ -1,0 +1,11 @@
+---
+description: Basic chat fixture
+inputs:
+  message:
+    kind: string
+    required: true
+outputs:
+  reply:
+    kind: string
+---
+You are a helpful assistant. Reply to: {{message}}

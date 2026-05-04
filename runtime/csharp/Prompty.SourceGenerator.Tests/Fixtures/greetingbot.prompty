@@ -1,0 +1,15 @@
+---
+name: GreetingBot
+description: Named fixture with multiple typed inputs
+inputs:
+  firstName:
+    kind: string
+    required: true
+  age:
+    kind: integer
+    default: 30
+outputs:
+  result:
+    kind: string
+---
+Greet {{firstName}}, age {{age}}.
