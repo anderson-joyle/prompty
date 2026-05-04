@@ -317,6 +317,26 @@ public class PromptySourceGeneratorTests
     }
 
     // -----------------------------------------------------------------------
+    // TS-16: End-to-end call site — named parameters match issue example
+    //   var result = await ChatPrompty.RunAsync(firstName: "Jane", question: "What is the meaning of life?");
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void TS16_RunAsync_GeneratesSignatureMatchingNamedParameterCallSite()
+    {
+        var src = GetGeneratedSource(RunGenerator("/p/chat.prompty", Fixtures.ChatQA));
+        Assert.Contains("public static partial class ChatPrompty", src);
+        Assert.Contains("string firstName", src);
+        Assert.Contains("string question", src);
+        // Validate the generated file is syntactically valid C#
+        var diags = CSharpSyntaxTree.ParseText(src)
+            .GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.Empty(diags);
+    }
+
+    // -----------------------------------------------------------------------
     // BUG-2 regression: optional params must follow required params
     // -----------------------------------------------------------------------
 
@@ -343,6 +363,9 @@ public class PromptySourceGeneratorTests
     {
         public const string Chat =
             "---\ndescription: Basic chat fixture\ninputs:\n  message:\n    kind: string\n    required: true\noutputs:\n  reply:\n    kind: string\n---\nYou are a helpful assistant.";
+
+        public const string ChatQA =
+            "---\ndescription: Chat with named params\ninputs:\n  firstName:\n    kind: string\n    required: true\n  question:\n    kind: string\n    required: true\noutputs:\n  reply:\n    kind: string\n---\nHello {{firstName}}, you asked: {{question}}";
 
         public const string GreetingBot =
             "---\nname: GreetingBot\ndescription: Named fixture\ninputs:\n  firstName:\n    kind: string\n    required: true\n  age:\n    kind: integer\n    default: 30\noutputs:\n  result:\n    kind: string\n---\nGreet {{firstName}}.";
